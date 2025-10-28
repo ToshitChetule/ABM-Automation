@@ -1,0 +1,20 @@
+{
+  "files": {
+    "main.css": "/ToshitChetule/ABM-Automation.git/static/css/main.06d94a32.css",
+    "main.js": "/ToshitChetule/ABM-Automation.git/static/js/main.1fd8a71a.js",
+    "static/js/223.0fb44a21.chunk.js": "/ToshitChetule/ABM-Automation.git/static/js/223.0fb44a21.chunk.js",
+    "static/js/453.4e7e6263.chunk.js": "/ToshitChetule/ABM-Automation.git/static/js/453.4e7e6263.chunk.js",
+    "static/media/doc.png": "/ToshitChetule/ABM-Automation.git/static/media/doc.b0d02c391dbec4024b32.png",
+    "static/media/txt-file.png": "/ToshitChetule/ABM-Automation.git/static/media/txt-file.0337eb5189d52b574323.png",
+    "static/media/logo.svg": "/ToshitChetule/ABM-Automation.git/static/media/logo.6ce24c58023cc2f8fd88fe9d219db6c6.svg",
+    "index.html": "/ToshitChetule/ABM-Automation.git/index.html",
+    "main.06d94a32.css.map": "/ToshitChetule/ABM-Automation.git/static/css/main.06d94a32.css.map",
+    "main.1fd8a71a.js.map": "/ToshitChetule/ABM-Automation.git/static/js/main.1fd8a71a.js.map",
+    "223.0fb44a21.chunk.js.map": "/ToshitChetule/ABM-Automation.git/static/js/223.0fb44a21.chunk.js.map",
+    "453.4e7e6263.chunk.js.map": "/ToshitChetule/ABM-Automation.git/static/js/453.4e7e6263.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.06d94a32.css",
+    "static/js/main.1fd8a71a.js"
+  ]
+}
