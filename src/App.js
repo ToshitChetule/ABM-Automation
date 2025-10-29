@@ -9,7 +9,7 @@ import EditModal from "./components/EditModal";
 import ExportFilePage from "./components/ExportFilePage";
 function App() {
   return (
-    <BrowserRouter>
+    // <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/upload" element={<UploadPage />} />
@@ -18,7 +18,7 @@ function App() {
         <Route path="/edit" element={<EditModal />} />
         <Route path="/export" element={<ExportFilePage />} />
       </Routes>
-    </BrowserRouter>
+    // </BrowserRouter>
   );
 }
 export default App;

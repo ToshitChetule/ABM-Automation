@@ -1,5 +1,12 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
+import { saveAs } from "file-saver";
+
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun } from "docx";
+import Swal from "sweetalert2";
 
 export default function ExtractionReviewPage() {
   const navigate = useNavigate();
@@ -10,42 +17,27 @@ export default function ExtractionReviewPage() {
   const [rows, setRows] = useState(navRows || []);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [attributeSearch, setAttributeSearch] = useState("");
+  const [valueSearch, setValueSearch] = useState("");
   const [selectedRows, setSelectedRows] = useState([]);
   const [prompt, setPrompt] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   const storedUser = JSON.parse(localStorage.getItem("user"));
   const username = storedUser?.username || "User";
 
-  // ✅ Reprocess file if needed
-  async function handleReprocess() {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch("http://localhost:5000/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: uploadedFilename }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.error || "Failed to re-process document.");
-        setColumns([]);
-        setRows([]);
-      } else {
-        setColumns(data.columns || []);
-        setRows(data.rows || []);
-      }
-    } catch (e) {
-      setError("Could not reach backend: " + e.message);
-      setColumns([]);
-      setRows([]);
+  // ✅ Toggle Select All
+  const toggleSelectAll = (checked) => {
+    if (checked) {
+      const allVisible = filteredRows.map((_, i) => rows.indexOf(filteredRows[i]));
+      setSelectedRows(allVisible);
+    } else {
+      setSelectedRows([]);
     }
-    setLoading(false);
-  }
+  };
 
-  // ✅ Refine selected rows only
+  // ✅ Refine selected rows
   async function handleRefineAttributes() {
     if (selectedRows.length === 0) {
       alert("Please select at least one row to refine.");
@@ -61,12 +53,7 @@ export default function ExtractionReviewPage() {
       setError("");
 
       const selectedData = selectedRows.map((i) => rows[i]);
-
-      // maintain chat memory
-      const updatedChatHistory = [
-        ...chatHistory,
-        { role: "user", content: prompt.trim() },
-      ];
+      const updatedChatHistory = [...chatHistory, { role: "user", content: prompt.trim() }];
 
       const response = await fetch("http://localhost:5000/refine", {
         method: "POST",
@@ -75,6 +62,7 @@ export default function ExtractionReviewPage() {
           selectedRows: selectedData,
           fullTable: rows,
           chatHistory: updatedChatHistory,
+          allRows: rows,
         }),
       });
 
@@ -85,19 +73,32 @@ export default function ExtractionReviewPage() {
         return;
       }
 
-      const refinedRows = data.rows || [];
+      // ✅ Smart handling — supports both full-table and partial refinement results
+      if (Array.isArray(data.rows) && data.rows.length >= rows.length) {
+        setRows(data.rows); // backend sent the full merged table
+      } else {
+        const refinedRows = data.rows || [];
+        const updatedRows = [...rows];
+        selectedRows.forEach((idx, i) => {
+          if (refinedRows[i]) updatedRows[idx] = refinedRows[i];
+        });
+        setRows(updatedRows);
+      }
 
-      // merge refined rows
-      const updatedRows = [...rows];
-      selectedRows.forEach((idx, i) => {
-        if (refinedRows[i]) updatedRows[idx] = refinedRows[i];
-      });
-
-      setRows(updatedRows);
       setChatHistory(updatedChatHistory);
       setSelectedRows([]);
       setPrompt("");
-      alert("✅ Attributes refined successfully!");
+
+      // ✅ Beautiful success popup instead of alert
+      Swal.fire({
+        icon: "success",
+        title: "Refinement Complete!",
+        text: "Selected attributes have been refined successfully.",
+        showConfirmButton: false,
+        timer: 2000,
+        background: "rgba(255,255,255,0.9)",
+        color: "#1e293b",
+      });
     } catch (err) {
       alert("Error refining attributes: " + err.message);
     } finally {
@@ -105,56 +106,102 @@ export default function ExtractionReviewPage() {
     }
   }
 
+  // ✅ Filter rows based on attribute + value search
   const filteredRows = rows.filter((row) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return row.some((cell) => String(cell).toLowerCase().includes(term));
+    const attributeMatch = attributeSearch
+      ? String(row[0] || "").toLowerCase().includes(attributeSearch.toLowerCase())
+      : true;
+
+    const valueMatch = valueSearch
+      ? String(row[1] || "").toLowerCase().includes(valueSearch.toLowerCase())
+      : true;
+
+    return attributeMatch && valueMatch;
   });
 
-  if (!uploadedFilename || !columns || !rows) {
-    return (
-      <div
-        style={{
-          background: "linear-gradient(135deg,#dbeafe,#f3e8ff)",
-          minHeight: "100vh",
-          overflowY: "auto",
-        }}
-      >
-        <header style={{ display: "flex", alignItems: "center", padding: "24px 24px" }}>
-          <img
-            src="https://img.icons8.com/fluency/96/000000/bot.png"
-            alt="bot"
-            style={{ width: 48, height: 48, marginRight: 16 }}
-          />
-          <h2 style={{ margin: 0, fontWeight: 700 }}>
-            AI Extraction Automation - Extraction Result Review Page
-          </h2>
-        </header>
-        <main
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "flex-start",
-            marginTop: 40,
-            paddingBottom: 60,
-          }}
-        >
-          <div
-            style={{
-              color: "red",
-              background: "rgba(255,255,255,0.7)",
-              padding: 20,
-              borderRadius: 10,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-            }}
-          >
-            No file or extraction results found.<br />
-            Redirecting to home...
-          </div>
-        </main>
-      </div>
-    );
-  }
+  const allSelected =
+    filteredRows.length > 0 &&
+    filteredRows.every((row) => selectedRows.includes(rows.indexOf(row)));
+
+  const partiallySelected =
+    selectedRows.length > 0 && !allSelected && selectedRows.length < filteredRows.length;
+
+  // ✅ EXPORT FUNCTIONS
+  const handleExport = (format) => {
+    const data = rows.map((r) => Object.fromEntries(columns.map((c, i) => [c, r[i]])));
+
+    switch (format) {
+      case "xlsx": {
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data");
+        XLSX.writeFile(wb, `${uploadedFilename || "output"}.xlsx`);
+        break;
+      }
+
+      case "pdf": {
+        const doc = new jsPDF();
+        doc.text("Extracted Attributes", 14, 16);
+        doc.autoTable({
+          head: [columns],
+          body: rows,
+          startY: 20,
+          styles: { fontSize: 8 },
+        });
+        doc.save(`${uploadedFilename || "output"}.pdf`);
+        break;
+      }
+
+      case "docx": {
+        const tableRows = rows.map(
+          (r) =>
+            new TableRow({
+              children: r.map((cell) => new TableCell({ children: [new Paragraph(cell.toString())] })),
+            })
+        );
+
+        const doc = new Document({
+          sections: [
+            {
+              properties: {},
+              children: [
+                new Paragraph({ children: [new TextRun("Extracted Attributes")] }),
+                new Table({
+                  rows: [
+                    new TableRow({
+                      children: columns.map((c) => new TableCell({ children: [new Paragraph(c)] })),
+                    }),
+                    ...tableRows,
+                  ],
+                }),
+              ],
+            },
+          ],
+        });
+
+        Packer.toBlob(doc).then((blob) => {
+          saveAs(blob, `${uploadedFilename || "output"}.docx`);
+        });
+        break;
+      }
+
+      case "txt": {
+        const text = [
+          columns.join("\t"),
+          ...rows.map((r) => r.join("\t")),
+        ].join("\n");
+
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        saveAs(blob, `${uploadedFilename || "output"}.txt`);
+        break;
+      }
+
+      default:
+        alert("Unsupported format");
+    }
+
+    setExportMenuOpen(false);
+  };
 
   return (
     <div
@@ -163,20 +210,22 @@ export default function ExtractionReviewPage() {
         minHeight: "100vh",
         fontFamily: "'Inter', sans-serif",
         color: "#1e293b",
+        overflowX: "hidden",
         overflowY: "auto",
       }}
     >
+      {/* HEADER */}
       <header
         style={{
           display: "flex",
           alignItems: "center",
-          padding: "24px 24px",
+          padding: "24px",
           background: "rgba(255,255,255,0.4)",
           backdropFilter: "blur(10px)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           position: "sticky",
           top: 0,
-          zIndex: 10,
+          zIndex: 50,
         }}
       >
         <img
@@ -184,9 +233,7 @@ export default function ExtractionReviewPage() {
           alt="bot"
           style={{ width: 48, height: 48, marginRight: 16 }}
         />
-        <h2 style={{ margin: 0, fontWeight: 700, color: "#1e1e1e" }}>
-          AI Extraction Automation - Extraction Result Review Page
-        </h2>
+        <h2 style={{ margin: 0, fontWeight: 700 }}>AI Extraction Automation - Review Page</h2>
         <span
           style={{
             marginLeft: "auto",
@@ -196,156 +243,246 @@ export default function ExtractionReviewPage() {
             fontWeight: 600,
           }}
         >
-          <h2>Hi {username} 👋</h2>
+          Hi {username} 👋
         </span>
       </header>
 
+      {/* MAIN */}
       <main
         style={{
           display: "flex",
           justifyContent: "center",
           alignItems: "flex-start",
-          marginTop: 40,
-          paddingBottom: 60,
+          padding: "20px 0",
         }}
       >
         <div
           style={{
-            width: "85%",
+            width: "80%",
             background: "rgba(255,255,255,0.6)",
             borderRadius: 20,
-            padding: 30,
             boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
             backdropFilter: "blur(12px)",
-            maxHeight: "80vh",
-            overflowY: "auto",
           }}
         >
-          <h3 style={{ color: "#1e40af", fontWeight: 700 }}>
-            Extracted Data: {uploadedFilename}
-          </h3>
-
-          {/* 🔍 Search + Action Buttons */}
-          <div style={{ marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
-            <input
-              placeholder="Search attributes"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                flex: 1,
-                padding: "8px 14px",
-                borderRadius: 8,
-                border: "1px solid #94a3b8",
-                outline: "none",
-                transition: "0.3s all",
-              }}
-            />
-
-            <button style={buttonStyle}>Approve Selected</button>
-            <button onClick={handleReprocess} style={buttonStyle}>
-              {loading ? "Re-processing..." : "Re-process"}
-            </button>
-            <button style={buttonStyle}>Export</button>
-          </div>
-
-          {/* 🧠 Prompt input + Refine Button */}
-          <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
-            <textarea
-              placeholder="Write a prompt to refine selected attributes..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              style={{
-                flex: 1,
-                minHeight: 80,
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid #94a3b8",
-                resize: "vertical",
-              }}
-            />
-            <button onClick={handleRefineAttributes} style={buttonStyle}>
-              {loading ? "Refining..." : "Refine Attributes"}
-            </button>
-          </div>
-
-          {error && <div style={{ color: "red", marginBottom: "12px" }}>{error}</div>}
-
-          {/* 📊 Table */}
+          {/* Sticky Controls */}
           <div
             style={{
-              overflowX: "auto",
-              borderRadius: 12,
-              background: "rgba(255,255,255,0.4)",
-              boxShadow: "inset 0 0 10px rgba(0,0,0,0.05)",
+              position: "sticky",
+              top: 0,
+              zIndex: 40,
+              background: "rgba(255,255,255,0.85)",
+              backdropFilter: "blur(8px)",
+              padding: "16px 24px",
+              borderBottom: "1px solid #e2e8f0",
             }}
           >
-            <table
+            <h3 style={{ color: "#1e40af", fontWeight: 700, marginBottom: 12 }}>
+              Extracted Data: {uploadedFilename}
+            </h3>
+
+            {/* SEARCH + EXPORT */}
+            <div
               style={{
-                borderCollapse: "collapse",
-                width: "100%",
-                background: "rgba(255,255,255,0.7)",
-                borderRadius: 10,
-                overflow: "hidden",
+                display: "flex",
+                gap: 10,
+                marginBottom: 10,
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
-              <thead>
-                <tr>
-                  <th style={{ ...thStyle, width: 40 }}></th>
-                  {columns.map((col, idx) => (
-                    <th key={idx} style={thStyle}>
-                      {col}
-                    </th>
-                  ))}
-                  <th style={thStyle}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row, ridx) => (
-                  <tr
-                    key={ridx}
+              <div style={{ display: "flex", gap: 10, flex: 1 }}>
+                <input
+                  placeholder="Search by Attribute..."
+                  value={attributeSearch}
+                  onChange={(e) => setAttributeSearch(e.target.value)}
+                  style={searchInputStyle}
+                />
+                <input
+                  placeholder="Search by Value..."
+                  value={valueSearch}
+                  onChange={(e) => setValueSearch(e.target.value)}
+                  style={searchInputStyle}
+                />
+              </div>
+
+              <button style={buttonStyle}>Approve Selected</button>
+
+              <div style={{ position: "relative" }}>
+                <button
+                  style={buttonStyle}
+                  onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                >
+                  Export ▼
+                </button>
+                {exportMenuOpen && (
+                  <div
                     style={{
-                      transition: "0.3s",
-                      background: selectedRows.includes(ridx)
-                        ? "rgba(147,197,253,0.3)"
-                        : "transparent",
+                      position: "absolute",
+                      right: 0,
+                      top: "110%",
+                      background: "white",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      zIndex: 100,
                     }}
                   >
-                    <td style={tdStyle}>
+                    {["xlsx", "pdf", "docx", "txt"].map((fmt) => (
+                      <div
+                        key={fmt}
+                        onClick={() => handleExport(fmt)}
+                        style={{
+                          padding: "10px 16px",
+                          cursor: "pointer",
+                          borderBottom: "1px solid #eee",
+                        }}
+                      >
+                        Export as {fmt.toUpperCase()}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* PROMPT SECTION */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <textarea
+                placeholder="Write a prompt to refine selected attributes..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                style={{
+                  flex: 1,
+                  minHeight: 70,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #94a3b8",
+                  resize: "vertical",
+                }}
+              />
+              <button onClick={handleRefineAttributes} style={RefineButtonStyle}>
+                {loading ? "Refining..." : "Refine Attributes"}
+              </button>
+            </div>
+          </div>
+
+          <br />
+
+          {/* TABLE */}
+          <div
+            style={{
+              flex: 1,
+              padding: "0 24px 24px 24px",
+            }}
+          >
+            <div
+              style={{
+                maxHeight: "70vh",
+                overflowY: "auto",
+                overflowX: "auto",
+                borderRadius: 12,
+                border: "1px solid #e2e8f0",
+                background: "rgba(255,255,255,0.85)",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+              }}
+            >
+              <table
+                style={{
+                  borderCollapse: "collapse",
+                  width: "100%",
+                  minWidth: "900px",
+                  tableLayout: "fixed",
+                  wordWrap: "break-word",
+                  whiteSpace: "normal",
+                }}
+              >
+                <thead
+                  style={{
+                    position: "sticky",
+                    top: 0,
+                    background: "rgba(248,250,252,0.98)",
+                    backdropFilter: "blur(6px)",
+                    zIndex: 30,
+                  }}
+                >
+                  <tr>
+                    <th style={{ ...thStyle, width: 40 }}>
                       <input
                         type="checkbox"
-                        checked={selectedRows.includes(ridx)}
-                        onChange={(e) => {
-                          const updated = e.target.checked
-                            ? [...selectedRows, ridx]
-                            : selectedRows.filter((id) => id !== ridx);
-                          setSelectedRows(updated);
-                        }}
+                        checked={allSelected}
+                        ref={(el) => el && (el.indeterminate = partiallySelected)}
+                        onChange={(e) => toggleSelectAll(e.target.checked)}
                       />
-                    </td>
-                    {row.map((cell, cidx) => (
-                      <td key={cidx} style={tdStyle}>
-                        {cell}
-                      </td>
+                    </th>
+                    {columns.map((col, idx) => (
+                      <th key={idx} style={{ ...thStyle, width: "180px" }}>
+                        {col}
+                      </th>
                     ))}
-                    <td style={tdStyle}>
-                      <button disabled style={{ ...buttonStyle, opacity: 0.6, cursor: "not-allowed" }}>
-                        Edit
-                      </button>
-                    </td>
+                    <th style={{ ...thStyle, width: "100px" }}>Action</th>
                   </tr>
-                ))}
-                {filteredRows.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={columns.length + 2}
-                      style={{ textAlign: "center", padding: 18, color: "#64748b" }}
-                    >
-                      No matching attributes found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {filteredRows.map((row, ridx) => {
+                    const globalIndex = rows.indexOf(row);
+                    return (
+                      <tr
+                        key={ridx}
+                        style={{
+                          transition: "0.3s",
+                          background: selectedRows.includes(globalIndex)
+                            ? "rgba(147,197,253,0.25)"
+                            : "transparent",
+                        }}
+                      >
+                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedRows.includes(globalIndex)}
+                            onChange={(e) => {
+                              const updated = e.target.checked
+                                ? [...selectedRows, globalIndex]
+                                : selectedRows.filter((id) => id !== globalIndex);
+                              setSelectedRows(updated);
+                            }}
+                          />
+                        </td>
+                        {row.map((cell, cidx) => (
+                          <td key={cidx} style={tdStyle}>
+                            {cell}
+                          </td>
+                        ))}
+                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                          <button
+                            disabled
+                            style={{ ...buttonStyle, opacity: 0.6, cursor: "not-allowed" }}
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredRows.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={columns.length + 2}
+                        style={{
+                          textAlign: "center",
+                          padding: 18,
+                          color: "#64748b",
+                        }}
+                      >
+                        No matching data found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>
@@ -353,9 +490,20 @@ export default function ExtractionReviewPage() {
   );
 }
 
+// ✅ Styles
+const searchInputStyle = {
+  flex: 1,
+  padding: "10px 14px",
+  borderRadius: "10px",
+  border: "1px solid #cbd5e1",
+  outline: "none",
+  background: "rgba(255,255,255,0.7)",
+  boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+  fontSize: "15px",
+};
+
 const buttonStyle = {
-  marginRight: 10,
-  padding: "8px 18px",
+  padding: "10px 20px",
   borderRadius: 8,
   border: "none",
   background: "linear-gradient(135deg,#6366f1,#3b82f6)",
@@ -365,16 +513,24 @@ const buttonStyle = {
   boxShadow: "0 4px 10px rgba(59,130,246,0.3)",
   transition: "all 0.25s ease",
 };
+
+const RefineButtonStyle = {
+  ...buttonStyle,
+  height: "50px",
+  marginTop: "15px",
+};
+
 const thStyle = {
   padding: 10,
   borderBottom: "2px solid #cbd5e1",
-  background: "rgba(241,245,249,0.9)",
   fontWeight: "bold",
   color: "#1e293b",
   textAlign: "left",
 };
+
 const tdStyle = {
   padding: 8,
   borderBottom: "1px solid #e2e8f0",
   color: "#334155",
+  wordWrap: "break-word",
 };
