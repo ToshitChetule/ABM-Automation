@@ -1,565 +1,4 @@
-
-// import React, { useState, useEffect } from "react";
-// import { useLocation, useNavigate } from "react-router-dom";
-// import Select from "react-select";
-
-// export default function DocReviewPage() {
-//   const location = useLocation();
-//   const navigate = useNavigate();
-
-//   const {
-//     uploadedFilename,
-//     fileSize,
-//     fileType,
-//     uploadedDate,
-//     fileObject
-//   } = location.state || {};
-
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState("");
-//   const [progress, setProgress] = useState(0);
-//   const [numRows, setNumRows] = useState(null);
-
-//   const [industry, setIndustry] = useState(null);
-//   const [productType, setProductType] = useState(null);
-
-//   // --- Options ---
-//   const industryOptions = [
-//     { value: "automotive", label: "Automotive" },
-//     { value: "aerospace", label: "Aerospace" },
-//     { value: "banking", label: "Banking" },
-//     { value: "chemicals", label: "Chemicals" },
-//     { value: "construction", label: "Construction" },
-//     { value: "consumer_goods", label: "Consumer Goods" },
-//     { value: "education", label: "Education" },
-//     { value: "electronics", label: "Electronics" },
-//     { value: "energy", label: "Energy & Utilities" },
-//     { value: "entertainment", label: "Entertainment" },
-//     { value: "food_beverages", label: "Food & Beverages" },
-//     { value: "healthcare", label: "Healthcare" },
-//     { value: "hospitality", label: "Hospitality" },
-//     { value: "insurance", label: "Insurance" },
-//     { value: "it_services", label: "IT & Software Services" },
-//     { value: "legal", label: "Legal Services" },
-//     { value: "logistics", label: "Logistics" },
-//     { value: "manufacturing", label: "Manufacturing" },
-//     { value: "media", label: "Media" },
-//     { value: "mining", label: "Mining" },
-//     { value: "pharmaceuticals", label: "Pharmaceuticals" },
-//     { value: "public_sector", label: "Public Sector" },
-//     { value: "real_estate", label: "Real Estate" },
-//     { value: "retail", label: "Retail" },
-//     { value: "telecom", label: "Telecommunications" },
-//     { value: "textile", label: "Textile" },
-//     { value: "transport", label: "Transport" },
-//     { value: "utilities", label: "Utilities" },
-//   ];
-
-//   const productTypeOptions = [
-//     { value: "raw_material", label: "Raw Material" },
-//     { value: "semi_finished", label: "Semi-Finished Product" },
-//     { value: "finished_good", label: "Finished Good" },
-//     { value: "service", label: "Service" },
-//     { value: "equipment", label: "Equipment" },
-//     { value: "software", label: "Software" },
-//     { value: "chemical", label: "Chemical Compound" },
-//     { value: "machinery", label: "Machinery" },
-//     { value: "packaging", label: "Packaging Material" },
-//     { value: "electronics", label: "Electronic Device" },
-//     { value: "automotive_part", label: "Automotive Part" },
-//     { value: "food_item", label: "Food Item" },
-//     { value: "pharma_drug", label: "Pharmaceutical Drug" },
-//     { value: "textile_fabric", label: "Textile/Fabric" },
-//   ];
-
-//   // --- Count Excel rows if it's Excel file ---
-//   useEffect(() => {
-//     async function getRowCount() {
-//       if (fileObject && fileType?.includes("sheet")) {
-//         const ExcelJS = await import("exceljs");
-//         const workbook = new ExcelJS.Workbook();
-//         const buffer = await fileObject.arrayBuffer();
-//         await workbook.xlsx.load(buffer);
-//         const worksheet = workbook.worksheets[0];
-//         setNumRows(worksheet.rowCount);
-//       }
-//     }
-//     getRowCount();
-//   }, [fileObject, fileType]);
-
-//   function prettyFileSize(size) {
-//     if (!size) return "";
-//     if (size > 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
-//     if (size > 1024) return `${(size / 1024).toFixed(1)} KB`;
-//     return `${size} bytes`;
-//   }
-
-//   async function handleProcessClick() {
-//     if (!fileObject) {
-//       setError("⚠️ No file uploaded. Please upload a file first.");
-//       return;
-//     }
-
-//     if (!industry || !productType) {
-//       setError("⚠️ Please select both Industry and Product Type.");
-//       return;
-//     }
-
-//     setLoading(true);
-//     setError("");
-//     setProgress(0);
-
-//     const progressInterval = setInterval(() => {
-//       setProgress(prev => (prev < 90 ? prev + Math.random() * 5 : prev));
-//     }, 400);
-
-//     try {
-//       const formData = new FormData();
-//       formData.append("file", fileObject);
-//       formData.append("industry", industry.value);
-//       formData.append("productType", productType.value);
-
-//       const res = await fetch("http://localhost:5000/process", {
-//         method: "POST",
-//         body: formData,
-//       });
-
-//       if (!res.ok) {
-//         const errData = await res.json().catch(() => ({}));
-//         throw new Error(errData.error || `Server error ${res.status}`);
-//       }
-
-//       const data = await res.json();
-//       clearInterval(progressInterval);
-//       setProgress(100);
-
-//       setTimeout(() => {
-//         navigate("/extraction_review", {
-//           state: {
-//             uploadedFilename,
-//             columns: data.columns || [],
-//             rows: data.rows || [],
-//             modelUsed: data.model_used || "Unknown Model",
-//           },
-//         });
-//       }, 800);
-//     } catch (e) {
-//       clearInterval(progressInterval);
-//       setError("Failed to process file: " + e.message);
-//     } finally {
-//       setLoading(false);
-//     }
-//   }
-
-//   return (
-//     <div style={{ background: "linear-gradient(135deg, #667eea, #764ba2)", minHeight: "100vh", paddingBottom: "60px" }}>
-//       <header style={{ display: "flex", alignItems: "center", padding: "24px 24px" }}>
-//         <img
-//           src="https://img.icons8.com/fluency/96/000000/bot.png"
-//           alt="bot"
-//           style={{ width: 48, height: 48, marginRight: 16 }}
-//         />
-//         <h2 style={{ margin: 0, fontWeight: 700, color: "#1e1e1e" }}>
-//           AI Extraction Automation - Document Review Page
-//         </h2>
-//       </header>
-
-//       <main
-//         style={{
-//           display: "flex",
-//           justifyContent: "center",
-//           alignItems: "flex-start",
-//           marginTop: 40,
-//         }}
-//       >
-//         <div style={{
-//           display: "flex",
-//           flexDirection: "column",
-//           alignItems: "center",
-//           background: "rgba(255,255,255,0.7)",
-//           borderRadius: 20,
-//           padding: "40px 60px",
-//           boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-//           backdropFilter: "blur(8px)",
-//           width: "600px"
-//         }}>
-//           <div style={{ fontSize: "72px", color: "#7c83a3", marginBottom: 16 }}>📄</div>
-//           <b style={{ fontSize: "20px", marginBottom: 8 }}>{uploadedFilename || "No file uploaded"}</b>
-//           <div style={{ color: "#555" }}>
-//             {fileSize ? `File size: ${prettyFileSize(fileSize)}` : null}
-//           </div>
-//           <div style={{ color: "#555", marginBottom: 10 }}>
-//             {uploadedDate ? `Uploaded: ${uploadedDate}` : null}
-//           </div>
-//           {numRows && (
-//             <div style={{ color: "#2563eb", fontWeight: 600, marginBottom: 14 }}>
-//               Rows detected in Excel: {numRows}
-//             </div>
-//           )}
-
-//           {/* Dropdowns */}
-//           <div style={{ width: "100%", marginTop: 20 }}>
-//             <label style={{ fontWeight: 600, marginBottom: 4, display: "block" }}>Industry</label>
-//             <Select
-//               options={industryOptions}
-//               value={industry}
-//               onChange={setIndustry}
-//               isSearchable
-//               placeholder="Select Industry..."
-//             />
-//           </div>
-//           <div style={{ width: "100%", marginTop: 20 }}>
-//             <label style={{ fontWeight: 600, marginBottom: 4, display: "block" }}>Product Type</label>
-//             <Select
-//               options={productTypeOptions}
-//               value={productType}
-//               onChange={setProductType}
-//               isSearchable
-//               placeholder="Select Product Type..."
-//             />
-//           </div>
-
-//           <button
-//             style={{
-//               marginTop: 30,
-//               padding: "14px 36px",
-//               fontSize: "18px",
-//               color: "#fff",
-//               background: (!industry || !productType) ? "#94a3b8" : "linear-gradient(135deg,#6366f1,#3b82f6)",
-//               border: "none",
-//               borderRadius: "10px",
-//               cursor: (!industry || !productType) ? "not-allowed" : "pointer",
-//               transition: "0.3s",
-//               boxShadow: (!industry || !productType) ? "none" : "0 4px 16px rgba(59,130,246,0.3)",
-//             }}
-//             onClick={handleProcessClick}
-//             disabled={!industry || !productType || loading}
-//           >
-//             {loading ? "Processing..." : "Process with AI Model"}
-//           </button>
-
-//           {loading && (
-//             <>
-//               <div
-//                 style={{
-//                   width: "100%",
-//                   height: "14px",
-//                   background: "rgba(0,0,0,0.1)",
-//                   borderRadius: "8px",
-//                   overflow: "hidden",
-//                   marginTop: "16px",
-//                   boxShadow: "inset 0 0 6px rgba(0,0,0,0.1)",
-//                 }}
-//               >
-//                 <div
-//                   style={{
-//                     height: "100%",
-//                     width: `${progress}%`,
-//                     background: "linear-gradient(90deg, #42a5f5, #1976d2)",
-//                     borderRadius: "8px",
-//                     transition: "width 0.4s ease",
-//                   }}
-//                 />
-//               </div>
-//               <div
-//                 style={{
-//                   fontSize: "16px",
-//                   fontWeight: "500",
-//                   color: "#1976d2",
-//                   marginTop: "8px",
-//                 }}
-//               >
-//                 {Math.floor(progress)}% completed
-//               </div>
-//             </>
-//           )}
-
-//           {error && <div style={{ color: "red", marginTop: "12px" }}>{error}</div>}
-//         </div>
-//       </main>
-//     </div>
-//   );
-// }
-
-
-
-// import React, { useState, useEffect } from "react";
-// import { useLocation, useNavigate } from "react-router-dom";
-// import Select from "react-select";
-
-// export default function DocReviewPage() {
-//   const location = useLocation();
-//   const navigate = useNavigate();
-
-//   const {
-//     uploadedFilename,
-//     fileSize,
-//     fileType,
-//     uploadedDate,
-//     fileObject
-//   } = location.state || {};
-
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState("");
-//   const [progress, setProgress] = useState(0);
-//   const [numRows, setNumRows] = useState(null);
-//   const [industry, setIndustry] = useState(null);
-//   const [productType, setProductType] = useState(null);
-
-//   const industryOptions = [
-//     { value: "automotive", label: "Automotive" },
-//     { value: "aerospace", label: "Aerospace" },
-//     { value: "banking", label: "Banking" },
-//     { value: "chemicals", label: "Chemicals" },
-//     { value: "construction", label: "Construction" },
-//     { value: "consumer_goods", label: "Consumer Goods" },
-//     { value: "education", label: "Education" },
-//     { value: "electronics", label: "Electronics" },
-//     { value: "energy", label: "Energy & Utilities" },
-//     { value: "entertainment", label: "Entertainment" },
-//     { value: "food_beverages", label: "Food & Beverages" },
-//     { value: "healthcare", label: "Healthcare" },
-//     { value: "hospitality", label: "Hospitality" },
-//     { value: "insurance", label: "Insurance" },
-//     { value: "it_services", label: "IT & Software Services" },
-//     { value: "legal", label: "Legal Services" },
-//     { value: "logistics", label: "Logistics" },
-//     { value: "manufacturing", label: "Manufacturing" },
-//     { value: "media", label: "Media" },
-//     { value: "mining", label: "Mining" },
-//     { value: "pharmaceuticals", label: "Pharmaceuticals" },
-//     { value: "public_sector", label: "Public Sector" },
-//     { value: "real_estate", label: "Real Estate" },
-//     { value: "retail", label: "Retail" },
-//     { value: "telecom", label: "Telecommunications" },
-//     { value: "textile", label: "Textile" },
-//     { value: "transport", label: "Transport" },
-//     { value: "utilities", label: "Utilities" },
-//   ];
-
-//   const productTypeOptions = [
-//     { value: "raw_material", label: "Raw Material" },
-//     { value: "semi_finished", label: "Semi-Finished Product" },
-//     { value: "finished_good", label: "Finished Good" },
-//     { value: "service", label: "Service" },
-//     { value: "equipment", label: "Equipment" },
-//     { value: "software", label: "Software" },
-//     { value: "chemical", label: "Chemical Compound" },
-//     { value: "machinery", label: "Machinery" },
-//     { value: "packaging", label: "Packaging Material" },
-//     { value: "electronics", label: "Electronic Device" },
-//     { value: "automotive_part", label: "Automotive Part" },
-//     { value: "food_item", label: "Food Item" },
-//     { value: "pharma_drug", label: "Pharmaceutical Drug" },
-//     { value: "textile_fabric", label: "Textile/Fabric" },
-//   ];
-
-//   useEffect(() => {
-//     async function getRowCount() {
-//       if (fileObject && fileType?.includes("sheet")) {
-//         const ExcelJS = await import("exceljs");
-//         const workbook = new ExcelJS.Workbook();
-//         const buffer = await fileObject.arrayBuffer();
-//         await workbook.xlsx.load(buffer);
-//         const worksheet = workbook.worksheets[0];
-//         setNumRows(worksheet.rowCount);
-//       }
-//     }
-//     getRowCount();
-//   }, [fileObject, fileType]);
-
-//   function prettyFileSize(size) {
-//     if (!size) return "";
-//     if (size > 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
-//     if (size > 1024) return `${(size / 1024).toFixed(1)} KB`;
-//     return `${size} bytes`;
-//   }
-
-//   async function handleProcessClick() {
-//     if (!fileObject) {
-//       setError("⚠️ No file uploaded. Please upload a file first.");
-//       return;
-//     }
-
-//     if (!industry || !productType) {
-//       setError("⚠️ Please select both Industry and Product Type.");
-//       return;
-//     }
-
-//     setLoading(true);
-//     setError("");
-//     setProgress(0);
-
-//     const progressInterval = setInterval(() => {
-//       setProgress(prev => (prev < 90 ? prev + Math.random() * 5 : prev));
-//     }, 400);
-
-//     try {
-//       const formData = new FormData();
-//       formData.append("file", fileObject);
-//       formData.append("industry", industry.value);
-//       formData.append("productType", productType.value);
-
-//       const res = await fetch("http://localhost:5000/process", {
-//         method: "POST",
-//         body: formData,
-//       });
-
-//       if (!res.ok) {
-//         const errData = await res.json().catch(() => ({}));
-//         throw new Error(errData.error || `Server error ${res.status}`);
-//       }
-
-//       const data = await res.json();
-//       clearInterval(progressInterval);
-//       setProgress(100);
-
-//       setTimeout(() => {
-//         navigate("/extraction_review", {
-//           state: {
-//             uploadedFilename,
-//             columns: data.columns || [],
-//             rows: data.rows || [],
-//             modelUsed: data.model_used || "Unknown Model",
-//           },
-//         });
-//       }, 800);
-//     } catch (e) {
-//       clearInterval(progressInterval);
-//       setError("Failed to process file: " + e.message);
-//     } finally {
-//       setLoading(false);
-//     }
-//   }
-
-//   return (
-//     <div style={{ 
-//       background: "linear-gradient(135deg, #667eea, #764ba2)", 
-//       minHeight: "100vh", 
-//       paddingBottom: "60px" 
-//     }}>
-//       <header style={{ display: "flex", alignItems: "center", padding: "24px 24px" }}>
-//         <img
-//           src="https://img.icons8.com/fluency/96/000000/bot.png"
-//           alt="bot"
-//           style={{ width: 48, height: 48, marginRight: 16 }}
-//         />
-//         <h2 style={{ margin: 0, fontWeight: 700, color: "#1e1e1e" }}>
-//           AI Extraction Automation - Document Review Page
-//         </h2>
-//       </header>
-
-//       <main style={{
-//         display: "flex",
-//         justifyContent: "center",
-//         alignItems: "flex-start",
-//         marginTop: 40,
-//         gap: "40px"
-//       }}>
-//         {/* LEFT COLUMN - ICON ONLY */}
-//         <div style={{
-//           background: "rgba(255,255,255,0.7)",
-//           borderRadius: 20,
-//           padding: "60px 80px",
-//           boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-//           backdropFilter: "blur(8px)",
-//           display: "flex",
-//           justifyContent: "center",
-//           alignItems: "center",
-//           flexDirection: "column"
-//         }}>
-//           <div style={{ fontSize: "120px", color: "#7c83a3" }}>📄</div>
-//         </div>
-
-//         {/* RIGHT COLUMN - DETAILS */}
-//         <div style={{
-//           display: "flex",
-//           flexDirection: "column",
-//           background: "rgba(255,255,255,0.7)",
-//           borderRadius: 20,
-//           padding: "40px 60px",
-//           boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-//           backdropFilter: "blur(8px)",
-//           width: "600px"
-//         }}>
-//           <b style={{ fontSize: "20px", marginBottom: 8 }}>{uploadedFilename || "No file uploaded"}</b>
-//           <div style={{ color: "#555" }}>{fileSize ? `File size: ${prettyFileSize(fileSize)}` : null}</div>
-//           <div style={{ color: "#555", marginBottom: 10 }}>{uploadedDate ? `Uploaded: ${uploadedDate}` : null}</div>
-
-//           {numRows && (
-//             <div style={{ color: "#2563eb", fontWeight: 600, marginBottom: 14 }}>
-//               Rows detected in Excel: {numRows}
-//             </div>
-//           )}
-
-//           {/* Dropdowns */}
-//           <div style={{ width: "100%", marginTop: 20 }}>
-//             <label style={{ fontWeight: 600, marginBottom: 4, display: "block" }}>Industry</label>
-//             <Select options={industryOptions} value={industry} onChange={setIndustry} isSearchable placeholder="Select Industry..." />
-//           </div>
-
-//           <div style={{ width: "100%", marginTop: 20 }}>
-//             <label style={{ fontWeight: 600, marginBottom: 4, display: "block" }}>Product Type</label>
-//             <Select options={productTypeOptions} value={productType} onChange={setProductType} isSearchable placeholder="Select Product Type..." />
-//           </div>
-
-//           <button
-//             style={{
-//               marginTop: 30,
-//               padding: "14px 36px",
-//               fontSize: "18px",
-//               color: "#fff",
-//               background: (!industry || !productType) ? "#94a3b8" : "linear-gradient(135deg,#6366f1,#3b82f6)",
-//               border: "none",
-//               borderRadius: "10px",
-//               cursor: (!industry || !productType) ? "not-allowed" : "pointer",
-//               transition: "0.3s",
-//               boxShadow: (!industry || !productType) ? "none" : "0 4px 16px rgba(59,130,246,0.3)",
-//             }}
-//             onClick={handleProcessClick}
-//             disabled={!industry || !productType || loading}
-//           >
-//             {loading ? "Processing..." : "Process with AI Model"}
-//           </button>
-
-//           {loading && (
-//             <>
-//               <div style={{
-//                 width: "100%",
-//                 height: "14px",
-//                 background: "rgba(0,0,0,0.1)",
-//                 borderRadius: "8px",
-//                 overflow: "hidden",
-//                 marginTop: "16px",
-//                 boxShadow: "inset 0 0 6px rgba(0,0,0,0.1)",
-//               }}>
-//                 <div style={{
-//                   height: "100%",
-//                   width: `${progress}%`,
-//                   background: "linear-gradient(90deg, #42a5f5, #1976d2)",
-//                   borderRadius: "8px",
-//                   transition: "width 0.4s ease",
-//                 }} />
-//               </div>
-//               <div style={{
-//                 fontSize: "16px",
-//                 fontWeight: "500",
-//                 color: "#1976d2",
-//                 marginTop: "8px",
-//               }}>
-//                 {Math.floor(progress)}% completed
-//               </div>
-//             </>
-//           )}
-
-//           {error && <div style={{ color: "red", marginTop: "12px" }}>{error}</div>}
-//         </div>
-//       </main>
-//     </div>
-//   );
-// }
-
-
+// Code Generated by Sidekick is for learning and experimentation purposes only.
 
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -584,6 +23,10 @@ export default function DocReviewPage() {
   const [numRows, setNumRows] = useState(null);
   const [industry, setIndustry] = useState(null);
   const [productType, setProductType] = useState(null);
+  const [jobId, setJobId] = useState(null);         // For progress tracking
+  const [columns, setColumns] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [modelUsed, setModelUsed] = useState("");   // For review page
 
   const industryOptions = [
     { value: "automotive", label: "Automotive" },
@@ -633,6 +76,7 @@ export default function DocReviewPage() {
     { value: "textile_fabric", label: "Textile/Fabric" },
   ];
 
+  // Count rows for Excel preview
   useEffect(() => {
     async function getRowCount() {
       if (fileObject && fileType?.includes("sheet")) {
@@ -654,24 +98,21 @@ export default function DocReviewPage() {
     return `${size} bytes`;
   }
 
-  // 🧠 Detect file type to show icon
   function getFileIcon() {
-    // if (!uploadedFilename) return defaultIcon;
-    const name = uploadedFilename.toLowerCase();
+    const name = uploadedFilename?.toLowerCase() || "";
     if (name.endsWith(".xlsx") || name.endsWith(".xls")) return excelIcon;
     if (name.endsWith(".pdf")) return pdfIcon;
     if (name.endsWith(".doc") || name.endsWith(".docx")) return wordIcon;
     if (name.endsWith(".txt")) return textIcon;
-    // if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")) return imageIcon;
     // return defaultIcon;
   }
 
+  // --- SUBMIT & PROCESS ---
   async function handleProcessClick() {
     if (!fileObject) {
       setError("⚠️ No file uploaded. Please upload a file first.");
       return;
     }
-
     if (!industry || !productType) {
       setError("⚠️ Please select both Industry and Product Type.");
       return;
@@ -680,10 +121,10 @@ export default function DocReviewPage() {
     setLoading(true);
     setError("");
     setProgress(0);
-
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => (prev < 90 ? prev + Math.random() * 5 : prev));
-    }, 400);
+    setJobId(null);
+    setColumns([]);
+    setRows([]);
+    setModelUsed("");
 
     try {
       const formData = new FormData();
@@ -691,6 +132,7 @@ export default function DocReviewPage() {
       formData.append("industry", industry.value);
       formData.append("productType", productType.value);
 
+      // THIS IS THE CORRECT ENDPOINT TO HIT FOR SUBMISSION
       const res = await fetch("http://localhost:5000/process", {
         method: "POST",
         body: formData,
@@ -702,27 +144,84 @@ export default function DocReviewPage() {
       }
 
       const data = await res.json();
-      clearInterval(progressInterval);
-      setProgress(100);
 
-      setTimeout(() => {
-        navigate("/extraction_review", {
-          state: {
-            uploadedFilename,
-            columns: data.columns || [],
-            rows: data.rows || [],
-            modelUsed: data.model_used || "Unknown Model",
-          },
-        });
-      }, 800);
+      if (!data.job_id) {
+        throw new Error("No job ID received. Backend must return job_id!");
+      }
+
+      setJobId(data.job_id);
+
+      // Clear columns/rows/modelUsed until results are fetched post-progress!
+      setColumns([]);
+      setRows([]);
+      setModelUsed("");
     } catch (e) {
-      clearInterval(progressInterval);
       setError("Failed to process file: " + e.message);
-    } finally {
       setLoading(false);
     }
   }
 
+  // --- REAL BACKEND-POLLED PROGRESS & RESULT FETCH ---
+  useEffect(() => {
+    if (!loading || !jobId) return;
+
+    let cancelled = false;
+    let interval = setInterval(async () => {
+      try {
+        // Poll progress (not result) for % complete
+        const resp = await fetch(`http://localhost:5000/progress/${jobId}`);
+        if (!resp.ok) throw new Error();
+        const progData = await resp.json();
+        if (!cancelled) setProgress(progData.progress || 0);
+
+        if (progData.progress >= 100) {
+          clearInterval(interval);
+          setProgress(100);
+          setLoading(false);
+
+          // Fetch results (may take a moment for backend thread to save them)
+          let tries = 0;
+          let resultData = null;
+          while (tries < 15) { // Wait up to 15 seconds
+            const resultResp = await fetch(`http://localhost:5000/result/${jobId}`);
+            const result = await resultResp.json();
+            if (result.columns && result.rows) {
+              resultData = result;
+              break;
+            }
+            await new Promise((res) => setTimeout(res, 1000));
+            tries++;
+          }
+
+          if (resultData) {
+            setColumns(resultData.columns);
+            setRows(resultData.rows);
+            setModelUsed(resultData.model_used || "Unknown Model");
+
+            navigate("/extraction_review", {
+              state: {
+                uploadedFilename,
+                columns: resultData.columns,
+                rows: resultData.rows,
+                modelUsed: resultData.model_used || "Unknown Model",
+              },
+            });
+          } else {
+            setError("⚠️ Could not load extraction results. Please try again.");
+          }
+        }
+      } catch {
+        /* Optionally: show error or keep spinner */
+      }
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [loading, jobId, navigate, uploadedFilename]);
+
+  // --- UI ---
   return (
     <div
       style={{
